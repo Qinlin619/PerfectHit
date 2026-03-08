@@ -15,13 +15,18 @@ class PerfectHitGame {
         this.ctx = this.canvas.getContext('2d');
         this.video = document.getElementById('webcam');
         this.scoreElement = document.getElementById('score');
+        this.countElement = document.getElementById('count');
         this.loader = document.getElementById('loader');
+        this.tutorialOverlay = document.getElementById('tutorial-overlay');
+        this.notificationContainer = document.getElementById('notification-container');
 
         this.score = 0;
+        this.catchCount = 0;
         this.unlockedBugs = new Set();
         this.bugs = [];
         this.hands = [];
         this.isClapping = false;
+        this.isPaused = true; // 初始暂停，等待教程结束
 
         this.init();
     }
@@ -38,10 +43,8 @@ class PerfectHitGame {
             );
 
             console.log("Initializing HandLandmarker with local model...");
-            // 初始化手势识别
             this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
                 baseOptions: {
-                    // 修正路径：现在 models/ 就在根目录
                     modelAssetPath: `./models/hand_landmarker.task`,
                     delegate: "GPU"
                 },
@@ -50,7 +53,6 @@ class PerfectHitGame {
             });
 
             console.log("Initializing FaceLandmarker with local model...");
-            // 初始化面部识别 (用于视差效果)
             this.faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
                 baseOptions: {
                     modelAssetPath: `./models/face_landmarker.task`,
@@ -66,9 +68,11 @@ class PerfectHitGame {
             this.loader.style.opacity = '0';
             setTimeout(() => {
                 this.loader.classList.add('hidden');
+                // 显示教程
+                this.tutorialOverlay.classList.remove('hidden');
+                this.setupTutorial();
             }, 800);
 
-            this.spawnBug();
             this.loop();
         } catch (error) {
             console.error("Initialization Failed:", error);
@@ -80,8 +84,19 @@ class PerfectHitGame {
         }
     }
 
+    setupTutorial() {
+        const startBtn = document.getElementById('start-tutorial-btn');
+        startBtn.onclick = () => {
+            this.tutorialOverlay.style.opacity = '0';
+            setTimeout(() => {
+                this.tutorialOverlay.classList.add('hidden');
+                this.isPaused = false;
+                this.spawnBug();
+            }, 500);
+        };
+    }
+
     async setupCamera() {
-        // 请求权限
         const constraints = {
             video: {
                 width: { ideal: 1280 },
@@ -104,6 +119,7 @@ class PerfectHitGame {
     }
 
     spawnBug() {
+        if (this.isPaused) return;
         const type = BUGS_DATA[Math.floor(Math.random() * BUGS_DATA.length)];
         this.bugs.push({
             ...type,
@@ -119,6 +135,7 @@ class PerfectHitGame {
     }
 
     updateBugs() {
+        if (this.isPaused) return;
         this.bugs.forEach(bug => {
             bug.angle += (bug.targetAngle - bug.angle) * 0.05;
             if (Math.random() > 0.98) bug.targetAngle = Math.random() * Math.PI * 2;
@@ -171,25 +188,51 @@ class PerfectHitGame {
 
         for (let i = this.bugs.length - 1; i >= 0; i--) {
             const bug = this.bugs[i];
-            // 摄像头镜像处理：1 - x
+            const bugScreenX = bug.x;
+            const bugScreenY = bug.y;
+            // 摄像头镜像，我们需要镜像 clapPos.x 来对比 bug.x
+            const clapScreenX = this.canvas.width - clapPos.x;
+            const clapScreenY = clapPos.y;
+
             const dist = Math.sqrt(
-                Math.pow(bug.x - (this.canvas.width - clapPos.x), 2) +
-                Math.pow(bug.y - clapPos.y, 2)
+                Math.pow(bugScreenX - clapScreenX, 2) +
+                Math.pow(bugScreenY - clapScreenY, 2)
             );
 
             if (dist < 100) {
-                this.catchBug(bug, i);
+                const isPerfect = dist < 30;
+                this.catchBug(bug, i, isPerfect, clapScreenX, clapScreenY);
                 break;
             }
         }
     }
 
-    catchBug(bug, index) {
-        this.score += bug.points;
+    catchBug(bug, index, isPerfect, x, y) {
+        let points = bug.points;
+        if (isPerfect) points *= 2;
+
+        this.score += points;
+        this.catchCount++;
+
         this.scoreElement.innerText = `得分: ${this.score}`;
+        this.countElement.innerText = `捕捉数量: ${this.catchCount}`;
+
         this.unlockedBugs.add(bug.id);
         this.bugs.splice(index, 1);
+
+        this.showNotification(isPerfect ? "PERFECT HIT!" : "击中! +1", isPerfect, x, y);
         this.updateEncyclopedia();
+    }
+
+    showNotification(text, isPerfect, x, y) {
+        const el = document.createElement('div');
+        el.className = `notification ${isPerfect ? 'hit-perfect' : 'hit-normal'}`;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.innerText = text;
+
+        this.notificationContainer.appendChild(el);
+        setTimeout(() => el.remove(), 1000);
     }
 
     updateEncyclopedia() {
@@ -245,20 +288,20 @@ class PerfectHitGame {
 
         if (this.video.readyState >= 2) {
             try {
-                const handResults = this.handLandmarker.detectForVideo(this.video, now);
-                this.hands = handResults.landmarks.map((landmarks, i) => ({
-                    landmarks,
-                    handedness: handResults.handedness[i]
-                }));
-
                 const faceResults = this.faceLandmarker.detectForVideo(this.video, now);
                 this.updateParallax(faceResults.faceLandmarks);
 
-                const clapPos = this.detectClap(this.hands);
-                if (clapPos) this.checkCollision(clapPos);
-            } catch (e) {
-                // 模型检测偶尔报错不中断循环
-            }
+                if (!this.isPaused) {
+                    const handResults = this.handLandmarker.detectForVideo(this.video, now);
+                    this.hands = handResults.landmarks.map((landmarks, i) => ({
+                        landmarks,
+                        handedness: handResults.handedness[i]
+                    }));
+
+                    const clapPos = this.detectClap(this.hands);
+                    if (clapPos) this.checkCollision(clapPos);
+                }
+            } catch (e) { }
         }
 
         this.updateBugs();

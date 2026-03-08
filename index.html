@@ -23,9 +23,37 @@
 
         <!-- UI层 -->
         <div id="ui-layer">
-            <div id="score">得分: 0</div>
+            <div id="score-container">
+                <div id="score">得分: 0</div>
+                <div id="count">捕捉数量: 0</div>
+            </div>
             <div id="encyclopedia-btn">📜 图鉴</div>
         </div>
+
+        <!-- 教程引导层 -->
+        <div id="tutorial-overlay" class="hidden">
+            <div class="tutorial-card">
+                <h2>如何玩这个游戏?</h2>
+                <div class="tutorial-steps">
+                    <div class="step">
+                        <div class="step-icon">👀</div>
+                        <p><b>1. 观察追踪</b><br>晃动头部，背景房间会随之产生 3D 偏移。</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-icon">👏</div>
+                        <p><b>2. 拍掌打击</b><br>看到虫子后，在摄像头前迅速合拢双手进行打击。</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-icon">🎯</div>
+                        <p><b>3. 绝美一击</b><br>如果掌心中心点精准重合在虫子正中心，将获得 PERFECT 评分！</p>
+                    </div>
+                </div>
+                <button id="start-tutorial-btn">我准备好了！</button>
+            </div>
+        </div>
+
+        <!-- 击中反馈容器 -->
+        <div id="notification-container"></div>
 
         <!-- 图鉴弹窗 -->
         <div id="modal" class="hidden">
