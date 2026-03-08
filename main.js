@@ -14,29 +14,29 @@ class PerfectHitGame {
         this.video = document.getElementById('webcam');
         this.scoreElement = document.getElementById('score');
         this.loader = document.getElementById('loader');
-        
+
         this.score = 0;
         this.unlockedBugs = new Set();
         this.bugs = [];
         this.hands = [];
         this.isClapping = false;
-        
+
         this.init();
     }
 
     async init() {
         this.resize();
         window.addEventListener('resize', () => this.resize());
-        
+
         try {
             const vision = await FilesetResolver.forVisionTasks(
                 "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm"
             );
-            
+
             // 初始化手势识别
             this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
                 baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                    modelAssetPath: `/models/hand_landmarker.task`,
                     delegate: "GPU"
                 },
                 runningMode: "VIDEO",
@@ -46,7 +46,7 @@ class PerfectHitGame {
             // 初始化面部识别 (用于视差效果)
             this.faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
                 baseOptions: {
-                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+                    modelAssetPath: `/models/face_landmarker.task`,
                     delegate: "GPU"
                 },
                 runningMode: "VIDEO"
@@ -86,7 +86,7 @@ class PerfectHitGame {
             size: 60,
             phase: Math.random() * 10
         });
-        
+
         // 每隔 3-5 秒尝试生成一只新的
         setTimeout(() => this.spawnBug(), 3000 + Math.random() * 2000);
     }
@@ -96,14 +96,14 @@ class PerfectHitGame {
             // 随机游走
             bug.angle += (bug.targetAngle - bug.angle) * 0.05;
             if (Math.random() > 0.98) bug.targetAngle = Math.random() * Math.PI * 2;
-            
+
             bug.x += Math.cos(bug.angle) * bug.speed;
             bug.y += Math.sin(bug.angle) * bug.speed;
-            
+
             // 边缘检测
             if (bug.x < 0 || bug.x > this.canvas.width) bug.angle = Math.PI - bug.angle;
             if (bug.y < 0 || bug.y > this.canvas.height) bug.angle = -bug.angle;
-            
+
             // 微微晃动
             bug.phase += 0.1;
             bug.displayX = bug.x + Math.sin(bug.phase) * 5;
@@ -122,13 +122,13 @@ class PerfectHitGame {
         const p2 = hands[1].landmarks[9];
 
         const dist = Math.sqrt(
-            Math.pow(p1.x - p2.x, 2) + 
+            Math.pow(p1.x - p2.x, 2) +
             Math.pow(p1.y - p2.y, 2)
         );
 
         // 阈值 (归一化坐标，0.15 约为双手靠近)
         const clapThreshold = 0.12;
-        
+
         if (dist < clapThreshold && !this.isClapping) {
             this.isClapping = true;
             return {
@@ -136,11 +136,11 @@ class PerfectHitGame {
                 y: (p1.y + p2.y) / 2 * this.canvas.height
             };
         }
-        
+
         if (dist > clapThreshold + 0.05) {
             this.isClapping = false;
         }
-        
+
         return false;
     }
 
@@ -166,7 +166,7 @@ class PerfectHitGame {
         this.scoreElement.innerText = `得分: ${this.score}`;
         this.unlockedBugs.add(bug.id);
         this.bugs.splice(index, 1);
-        
+
         // 简单的打击特效可以以后加
         console.log(`Caught ${bug.name}!`);
         this.updateEncyclopedia();
@@ -184,12 +184,12 @@ class PerfectHitGame {
 
     updateParallax(faceLandmarks) {
         if (!faceLandmarks || faceLandmarks.length === 0) return;
-        
+
         // 取鼻尖 (Landmark 1)
         const nose = faceLandmarks[0][1];
         const tx = (nose.x - 0.5) * 30; // 映射到 -15deg ~ 15deg
         const ty = (nose.y - 0.5) * 20;
-        
+
         document.documentElement.style.setProperty('--tilt-x', `${-tx}deg`);
         document.documentElement.style.setProperty('--tilt-y', `${ty}deg`);
     }
@@ -201,7 +201,7 @@ class PerfectHitGame {
         this.ctx.font = '50px serif';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        
+
         this.bugs.forEach(bug => {
             this.ctx.save();
             this.ctx.translate(bug.displayX, bug.displayY);
@@ -225,7 +225,7 @@ class PerfectHitGame {
 
     async loop() {
         const now = performance.now();
-        
+
         // AI 追踪
         if (this.video.readyState >= 2) {
             const handResults = this.handLandmarker.detectForVideo(this.video, now);

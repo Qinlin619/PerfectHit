@@ -1,17 +1,19 @@
 {
-  "name": "perfecthit",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^5.0.0"
-  },
-  "dependencies": {
-    "@mediapipe/tasks-vision": "0.10.9"
-  }
+    "name": "perfecthit",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "start": "http-server ./ -p 5566 -c-1",
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "devDependencies": {
+        "http-server": "^14.1.1",
+        "vite": "^5.0.0"
+    },
+    "dependencies": {
+        "@mediapipe/tasks-vision": "0.10.9"
+    }
 }
