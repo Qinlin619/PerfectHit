@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Hit - 拍击绝美一击</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 头部跟随的背景层 -->
+        <div id="background-container">
+            <div id="room-bg"></div>
+        </div>
+
+        <!-- 视频源（隐藏） -->
+        <video id="webcam" autoplay playsinline style="display: none;"></video>
+
+        <!-- 游戏层 -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UI层 -->
+        <div id="ui-layer">
+            <div id="score">得分: 0</div>
+            <div id="encyclopedia-btn">📜 图鉴</div>
+        </div>
+
+        <!-- 图鉴弹窗 -->
+        <div id="modal" class="hidden">
+            <div class="modal-content">
+                <h2>虫子图鉴</h2>
+                <div id="bug-list"></div>
+                <button id="close-modal">关闭</button>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="loader">
+            <div class="spinner"></div>
+            <p>正在初始化 AI 模型...</p>
+        </div>
+    </div>
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
