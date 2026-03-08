@@ -260,6 +260,7 @@ class PerfectHitGame {
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+        // 绘制虫子
         this.ctx.font = '50px serif';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
@@ -272,14 +273,55 @@ class PerfectHitGame {
             this.ctx.restore();
         });
 
+        // 绘制手势引导 (让用户看清手在哪)
         if (this.hands && this.hands.length > 0) {
-            this.ctx.fillStyle = this.isClapping ? 'rgba(255, 71, 87, 0.5)' : 'rgba(255, 255, 255, 0.2)';
-            this.hands.forEach(hand => {
-                const center = hand.landmarks[9];
+            this.ctx.save();
+
+            // 如果有两只手，画一条连线
+            if (this.hands.length === 2) {
+                const p1 = { x: (1 - this.hands[0].landmarks[9].x) * this.canvas.width, y: this.hands[0].landmarks[9].y * this.canvas.height };
+                const p2 = { x: (1 - this.hands[1].landmarks[9].x) * this.canvas.width, y: this.hands[1].landmarks[9].y * this.canvas.height };
+
                 this.ctx.beginPath();
-                this.ctx.arc((1 - center.x) * this.canvas.width, center.y * this.canvas.height, 40, 0, Math.PI * 2);
+                this.ctx.moveTo(p1.x, p1.y);
+                this.ctx.lineTo(p2.x, p2.y);
+                this.ctx.strokeStyle = this.isClapping ? 'rgba(255, 71, 87, 0.8)' : 'rgba(255, 255, 255, 0.2)';
+                this.ctx.setLineDash([5, 5]);
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+            }
+
+            this.hands.forEach((hand, index) => {
+                const center = hand.landmarks[9];
+                const x = (1 - center.x) * this.canvas.width;
+                const y = center.y * this.canvas.height;
+
+                // 绘制外圈光晕
+                const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, 60);
+                if (this.isClapping) {
+                    gradient.addColorStop(0, 'rgba(255, 71, 87, 0.6)');
+                    gradient.addColorStop(1, 'rgba(255, 71, 87, 0)');
+                } else {
+                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                }
+
+                this.ctx.fillStyle = gradient;
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, 60, 0, Math.PI * 2);
                 this.ctx.fill();
+
+                // 绘制掌心图标
+                this.ctx.font = '40px serif';
+                this.ctx.fillText('✋', x, y);
+
+                // 绘制提示文字
+                this.ctx.font = '12px Inter';
+                this.ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                this.ctx.fillText(hand.handedness[0].categoryName === 'Left' ? '右手' : '左手', x, y + 50);
+                // 注意：摄像头镜像后，左手会变成右手，这里文字提示用户镜像感知
             });
+            this.ctx.restore();
         }
     }
 
