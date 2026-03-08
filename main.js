@@ -20,6 +20,9 @@ class PerfectHitGame {
         this.tutorialOverlay = document.getElementById('tutorial-overlay');
         this.notificationContainer = document.getElementById('notification-container');
 
+        // 音频系统
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
         this.score = 0;
         this.catchCount = 0;
         this.unlockedBugs = new Set();
@@ -160,37 +163,66 @@ class PerfectHitGame {
             return false;
         }
 
-        // 取两只手的中心位置 (Landmark 9 是中指根部，相对稳定)
-        const p1 = hands[0].landmarks[9];
-        const p2 = hands[1].landmarks[9];
+        const h1 = hands[0].landmarks;
+        const h2 = hands[1].landmarks;
+
+        // 计算手部在屏幕上的大致大小 (腕部到中指根部的距离)
+        const getHandSize = (landmarks) => Math.sqrt(
+            Math.pow(landmarks[0].x - landmarks[9].x, 2) +
+            Math.pow(landmarks[0].y - landmarks[9].y, 2)
+        );
+        const handSize = (getHandSize(h1) + getHandSize(h2)) / 2;
+
+        // 掌心中心点
+        const p1 = h1[9];
+        const p2 = h2[9];
 
         const currentDist = Math.sqrt(
             Math.pow(p1.x - p2.x, 2) +
             Math.pow(p1.y - p2.y, 2)
         );
 
-        // 核心改动：不仅看物理距离，还看相对速度
+        // 如果两手距离小于 1.8 倍的手掌大小，即认为是在拍手动作范围内
+        const clapThreshold = handSize * 1.8;
         const velocity = this.prevDist - currentDist;
         this.prevDist = currentDist;
 
-        // 1. 距离足够近 (0.12)
-        // 2. 且有明显的并拢动作 (velocity > 0.02)
-        // 3. 且距离上一次判定已过去一段时间 (防止连击)
         const now = Date.now();
-        if (currentDist < 0.14 && velocity > 0.01 && now - this.lastClapTime > 500) {
+        // 降低了对 velocity 的严苛要求，增加了对距离的动态感知
+        if (currentDist < clapThreshold && (velocity > 0.005 || currentDist < handSize * 0.8) && now - this.lastClapTime > 300) {
             this.isClapping = true;
             this.lastClapTime = now;
+            this.playClapSound(); // 触发声音
             return {
                 x: (p1.x + p2.x) / 2 * this.canvas.width,
                 y: (p1.y + p2.y) / 2 * this.canvas.height
             };
         }
 
-        if (currentDist > 0.2) {
+        if (currentDist > clapThreshold * 1.5) {
             this.isClapping = false;
         }
 
         return false;
+    }
+
+    playClapSound() {
+        if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+        const oscillator = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(150, this.audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1, this.audioCtx.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.1);
+
+        oscillator.connect(gain);
+        gain.connect(this.audioCtx.destination);
+
+        oscillator.start();
+        oscillator.stop(this.audioCtx.currentTime + 0.1);
     }
 
     checkCollision(clapPos) {
