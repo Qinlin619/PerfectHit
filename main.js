@@ -25,8 +25,10 @@ class PerfectHitGame {
         this.unlockedBugs = new Set();
         this.bugs = [];
         this.hands = [];
+        this.prevDist = 1.0;
         this.isClapping = false;
         this.isPaused = true; // 初始暂停，等待教程结束
+        this.lastClapTime = 0;
 
         this.init();
     }
@@ -158,25 +160,33 @@ class PerfectHitGame {
             return false;
         }
 
+        // 取两只手的中心位置 (Landmark 9 是中指根部，相对稳定)
         const p1 = hands[0].landmarks[9];
         const p2 = hands[1].landmarks[9];
 
-        const dist = Math.sqrt(
+        const currentDist = Math.sqrt(
             Math.pow(p1.x - p2.x, 2) +
             Math.pow(p1.y - p2.y, 2)
         );
 
-        const clapThreshold = 0.12;
+        // 核心改动：不仅看物理距离，还看相对速度
+        const velocity = this.prevDist - currentDist;
+        this.prevDist = currentDist;
 
-        if (dist < clapThreshold && !this.isClapping) {
+        // 1. 距离足够近 (0.12)
+        // 2. 且有明显的并拢动作 (velocity > 0.02)
+        // 3. 且距离上一次判定已过去一段时间 (防止连击)
+        const now = Date.now();
+        if (currentDist < 0.14 && velocity > 0.01 && now - this.lastClapTime > 500) {
             this.isClapping = true;
+            this.lastClapTime = now;
             return {
                 x: (p1.x + p2.x) / 2 * this.canvas.width,
                 y: (p1.y + p2.y) / 2 * this.canvas.height
             };
         }
 
-        if (dist > clapThreshold + 0.05) {
+        if (currentDist > 0.2) {
             this.isClapping = false;
         }
 
@@ -296,24 +306,44 @@ class PerfectHitGame {
                 const x = (1 - center.x) * this.canvas.width;
                 const y = center.y * this.canvas.height;
 
-                // 绘制外圈光晕
-                const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, 60);
+                // 判断手部是否侧向 (变扁)
+                // 计算大拇指到小拇指的水平距离作为宽度参考
+                const thumbBase = hand.landmarks[1];
+                const pinkyBase = hand.landmarks[17];
+                const handWidth = Math.abs(thumbBase.x - pinkyBase.x);
+                const isFlat = handWidth < 0.04;
+
+                this.ctx.save();
+                this.ctx.translate(x, y);
+
+                // 绘制光晕
+                const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, 60);
                 if (this.isClapping) {
-                    gradient.addColorStop(0, 'rgba(255, 71, 87, 0.6)');
-                    gradient.addColorStop(1, 'rgba(255, 71, 87, 0)');
+                    gradient.addColorStop(0, 'rgba(255, 204, 0, 0.8)');
+                    gradient.addColorStop(1, 'rgba(255, 204, 0, 0)');
                 } else {
-                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
                     gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
                 }
 
                 this.ctx.fillStyle = gradient;
                 this.ctx.beginPath();
-                this.ctx.arc(x, y, 60, 0, Math.PI * 2);
+                this.ctx.arc(0, 0, this.isClapping ? 100 : 60, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // 绘制掌心图标
+                // 展现不同的手势图标
                 this.ctx.font = '40px serif';
-                this.ctx.fillText('✋', x, y);
+                if (this.isClapping) {
+                    this.ctx.fillText('💥', 0, 0);
+                } else if (isFlat) {
+                    // 如果手侧过来了，显示侧向图标
+                    this.ctx.scale(0.5, 1);
+                    this.ctx.fillText('✋', 0, 0);
+                } else {
+                    this.ctx.fillText('✋', 0, 0);
+                }
+
+                this.ctx.restore();
 
                 // 绘制提示文字
                 this.ctx.font = '12px Inter';
